@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <script type="module" src="/main.js"></script> -->
+    <!-- <script type="module" src="/main1.js"></script> -->
+    <!-- <script type="module" src="/main2.js"></script> -->
+
+
+    <style>
+    body { margin: 0; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+<script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three@0.134.0/src/Three.js';
+    import { OrbitControls } from 'https://cdn.skypack.dev/three@0.134.0/examples/jsm/controls/OrbitControls.js';
+    import Stats from 'https://cdn.skypack.dev/three@0.134.0/examples/jsm/libs/stats.module.js';
+    import { GLTFLoader } from "https://cdn.skypack.dev/three@0.134.0/examples/jsm/loaders/GLTFLoader.js";
+    import { FBXLoader } from "https://cdn.skypack.dev/three@0.134.0/examples/jsm/loaders/FBXLoader.js";
+    import { OBJExporter } from 'https://cdn.skypack.dev/three@0.134.0/examples/jsm/exporters/OBJExporter.js';
+    import { GLTFExporter } from 'https://cdn.skypack.dev/three@0.134.0/examples/jsm/exporters/GLTFExporter.js';
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Initialize OrbitControls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    const axesHelper = new THREE.AxesHelper(5); // The argument defines the size of the helper.
+    scene.add(axesHelper);
+    // Set up lighting
+    const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(1, 1, 1).normalize();
+    scene.add(directionalLight);
+
+    // Set the camera position
+    camera.position.set(0, 0, 3);
+    controls.update();
+
+    // Define the layout points
+    const layoutPositions = [
+      new THREE.Vector3(-0.120, -0.954, -1.712),
+      new THREE.Vector3(0.272, -0.947, -1.394),
+      new THREE.Vector3(0.377, -0.988, -0.964),
+      new THREE.Vector3(0.019, -0.988, -0.619),
+      new THREE.Vector3(-0.286, -0.988, -0.904),
+      new THREE.Vector3(-0.309, -0.988, -1.366),
+    ];
+
+    // Create the layout model
+    const layoutShape = new THREE.Shape();
+    layoutShape.moveTo(layoutPositions[0].x, layoutPositions[0].z);
+    for (let i = 1; i < layoutPositions.length; i++) {
+      layoutShape.lineTo(layoutPositions[i].x, layoutPositions[i].z);
+    }
+    layoutShape.lineTo(layoutPositions[0].x, layoutPositions[0].z);
+    const layoutExtrudeSettings = {
+      steps: 1,
+      depth: 0.05,
+      bevelEnabled: false
+    };
+    const layoutGeometry = new THREE.ExtrudeGeometry(layoutShape, layoutExtrudeSettings);
+    const layoutMaterial = new THREE.MeshBasicMaterial({ color: 0x808080, wireframe: false });
+    const layoutMesh = new THREE.Mesh(layoutGeometry, layoutMaterial);
+
+    // Calculate the centroid of the layout for positioning
+    const layoutCentroid = layoutPositions.reduce((sum, pos) => sum.add(pos), new THREE.Vector3()).divideScalar(layoutPositions.length);
+    layoutMesh.position.set(layoutCentroid.x, layoutCentroid.y - 0.05 / 2, layoutCentroid.z);
+    console.log(layoutMesh.position);
+    layoutMesh.rotation.x = Math.PI / 2; // Rotate around X axis
+    const scale = 2;
+    layoutMesh.scale.set(scale, scale, scale);
+    scene.add(layoutMesh);
+
+    // Load the sofa model
+    const sofaLoader = new GLTFLoader();
+
+    sofaLoader.load('https://appassets.androidplatform.net/assets/models/desk-v1.glb', (gltf) => {
+        const sofaModel = gltf.scene;
+
+        // Adjust the scale and rotation of the sofa model as needed
+        sofaModel.scale.set(0.1, 0.1, 0.1);
+        sofaModel.scale.set(0.3, 0.3, 0.3);
+
+        // Calculate the sofa's Y position
+        // const sofaYPosition = layoutMesh.position.y + (layoutExtrudeSettings.depth * scale) / 2;
+
+        // // Set the position of the sofa model
+        // const sofaPosition = new THREE.Vector3(0.025, sofaYPosition, -1.116);
+
+        const sofaYPosition = layoutMesh.position.y + (layoutExtrudeSettings.depth * scale) / 2;
+        const offsetZ = -2.5;  // Adjust this offset based on the image and desired placement.
+        const offsetX = 0;      // Adjust if the sofa needs to move left or right.
+
+        // Set the position of the sofa model
+        const sofaPosition = new THREE.Vector3(layoutMesh.position.x + offsetX, sofaYPosition, layoutMesh.position.z + offsetZ);
+        sofaModel.position.copy(sofaPosition);
+        console.log(layoutMesh.position);
+        // Add the sofa model to the scene
+        scene.add(sofaModel);
+
+        exportScene(scene);
+
+      });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+    console.log(scene.children);
+
+    function exportScene(scene) {
+        const exporter = new GLTFExporter();
+        exporter.parse(
+          scene,
+          function (result) {
+            const output = JSON.stringify(result, null, 2);
+            const blob = new Blob([output], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'scene.gltf';
+            a.click();
+          },
+          { binary: false }
+        );
+      }
+
+
+ </script>
+</body>
+</html>
